@@ -47,3 +47,10 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Ignore large file types
+*.wav
+
+# Ignore raw and intermediate data
+data/00_raw
+data/01_interim
