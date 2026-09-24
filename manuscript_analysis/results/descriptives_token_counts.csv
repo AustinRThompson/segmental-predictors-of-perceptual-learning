@@ -1,0 +1,8 @@
+"class","category","speakers","total_tokens","median_per_speaker","min_per_speaker","max_per_speaker"
+"Stop (VOT)","P",40,1075,27,22,34
+"Stop (VOT)","T",40,667,16,13,24
+"Stop (VOT)","K",40,812,20,15,26
+"Vowel (F1/F2)","AA",40,805,20,10,27
+"Vowel (F1/F2)","AE",40,873,22,16,31
+"Vowel (F1/F2)","IY",40,803,20,16,25
+"Vowel (F1/F2)","UW",40,480,12,11,17

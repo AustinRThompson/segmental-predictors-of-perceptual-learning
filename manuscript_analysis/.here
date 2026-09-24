@@ -1,0 +1,4 @@
+This file marks manuscript_analysis/ as the project root for here::here().
+It ensures here() resolves to this folder (not the repo root, which has its
+own .Rproj/.git), so scripts and the targets pipeline find models/, data/,
+results/, and figures/ relative to manuscript_analysis/.

@@ -1,0 +1,4 @@
+"targetStop","n_distributions","median_skew","pct_positive_skew","median_mean_minus_median_ms","pct_nonnormal_p05"
+"P",40,0.770566268016591,77.5,3.01775956499828,37.5
+"T",40,0.29059340454579,75,2.57581643302705,22.5
+"K",40,0.523123192919619,80,4.18856530582224,22.5

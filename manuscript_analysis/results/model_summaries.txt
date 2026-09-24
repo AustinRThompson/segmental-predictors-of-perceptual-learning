@@ -1,0 +1,126 @@
+Final manuscript analysis reproduction
+Generated: 2026-09-24 16:50:19 UTC
+
+
+========================================================================
+RQ1: stop variability 
+
+Call:
+lm(formula = pretest ~ rate_sps + vot_CoV, data = dat)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-29.6127  -5.3137  -0.3017   7.2410  18.4379 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  81.9609    20.0461   4.089 0.000224 ***
+rate_sps      2.3842     4.6093   0.517 0.608051    
+vot_CoV      -0.3669     0.2267  -1.619 0.114028    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 10.61 on 37 degrees of freedom
+Multiple R-squared:  0.09579,	Adjusted R-squared:  0.04692 
+F-statistic:  1.96 on 2 and 37 DF,  p-value: 0.1552
+
+
+========================================================================
+RQ1: vowel variability 
+
+Call:
+lm(formula = pretest ~ rate_sps + vowel_MCV_z, data = dat)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-25.850  -6.911   1.254   6.820  17.751 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)   64.836     13.794   4.700 3.55e-05 ***
+rate_sps       2.941      4.316   0.682   0.4998    
+vowel_MCV_z   -3.697      1.692  -2.184   0.0353 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 10.33 on 37 degrees of freedom
+Multiple R-squared:  0.1424,	Adjusted R-squared:  0.09602 
+F-statistic: 3.071 on 2 and 37 DF,  p-value: 0.05834
+
+
+========================================================================
+RQ2: stop variability 
+
+Call:
+lm(formula = learning ~ rate_sps + pretest_c * vot_CoV_c, data = dat)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-6.7217 -3.6854  0.0034  2.8836 11.5434 
+
+Coefficients:
+                    Estimate Std. Error t value Pr(>|t|)   
+(Intercept)          6.64613    6.26065   1.062  0.29570   
+rate_sps             0.11434    1.96747   0.058  0.95399   
+pretest_c           -0.25002    0.07122  -3.511  0.00125 **
+vot_CoV_c           -0.22746    0.10266  -2.216  0.03332 * 
+pretest_c:vot_CoV_c  0.02414    0.00988   2.443  0.01976 * 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 4.481 on 35 degrees of freedom
+Multiple R-squared:  0.3145,	Adjusted R-squared:  0.2362 
+F-statistic: 4.014 on 4 and 35 DF,  p-value: 0.008776
+
+
+========================================================================
+RQ2: vowel variability 
+
+Call:
+lm(formula = learning ~ rate_sps + pretest_c * vowel_MCV_z, data = dat)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-9.3834 -2.7978  0.0723  2.5296 12.0440 
+
+Coefficients:
+                      Estimate Std. Error t value Pr(>|t|)   
+(Intercept)            2.15396    6.37349   0.338  0.73742   
+rate_sps               1.54217    2.01428   0.766  0.44904   
+pretest_c             -0.24176    0.07696  -3.142  0.00341 **
+vowel_MCV_z            0.47416    0.88162   0.538  0.59410   
+pretest_c:vowel_MCV_z  0.16873    0.07281   2.317  0.02646 * 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 4.649 on 35 degrees of freedom
+Multiple R-squared:  0.2621,	Adjusted R-squared:  0.1778 
+F-statistic: 3.109 on 4 and 35 DF,  p-value: 0.02733
+
+
+========================================================================
+Segmental–suprasegmental correlations
+
+	Pearson's product-moment correlation
+
+data:  sti_joined$STI and sti_joined$vot_CoV
+t = 1.4767, df = 38, p-value = 0.148
+alternative hypothesis: true correlation is not equal to 0
+95 percent confidence interval:
+ -0.0846924  0.5076334
+sample estimates:
+      cor 
+0.2329631 
+
+
+	Pearson's product-moment correlation
+
+data:  sti_joined$STI and sti_joined$vowel_MCV
+t = 1.2967, df = 38, p-value = 0.2026
+alternative hypothesis: true correlation is not equal to 0
+95 percent confidence interval:
+ -0.1129023  0.4861806
+sample estimates:
+      cor 
+0.2058467 
+

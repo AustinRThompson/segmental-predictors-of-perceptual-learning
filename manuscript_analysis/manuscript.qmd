@@ -1,0 +1,409 @@
+---
+title: "Segmental variability as a predictor of perceptual learning of children’s speech"
+author: "Austin Thompson^1^, Alan Wisler^2^, Camille J. Wynn^3^, Katerina A. Tetzloff^4^, and Stephanie A. Borrie^3^"
+abstract: |
+  1.  Department of Communication Sciences and Disorders, University of Houston, Houston, Texas, 77204, United States
+  2.  Department of Mathematics and Statistics, Utah State University, Logan, Utah, 84322, United States
+  3.  Department of Speech and Hearing Sciences, Utah State University, Logan, Utah, 84322, United States
+  4.  Department of Linguistics, Stony Brook University, Stony Brook, New York, 11794, United States
+abstract-title: Affiliations
+bibliography: ../references.bib
+nocite:
+  - '@mcauliffe2017'
+  - '@ditzhaus2023'
+  - '@voinov1996'
+  - '@allen2004'
+  - '@mahr2023'
+  - '@vuolo2017'
+  - '@borrie2012'
+  - '@borrie2013'
+  - '@kim2015'
+  - '@spitzer2000'
+csl: ../the-journal-of-the-acoustical-society-of-america.csl
+format:
+  docx:
+    reference-doc: templates-data/custom-reference.docx
+    toc: false
+    number-sections: false
+  html:
+    toc: true
+    number-sections: false
+editor: visual
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{=html}
+<!--
+Manuscript drafting file.
+
+Statistical source files:
+- R/analysis.R: final manuscript models and correlations
+- R/create_figures.R: manuscript figures
+
+Generated results are in manuscript_analysis/results/.
+-->
+```
+
+```{r}
+#| label: setup-results
+#| include: false
+
+source("R/model_tables.R")
+manuscript_models <- read.csv(
+  "results/model_coefficients.csv",
+  check.names = FALSE
+)
+
+fmt_r2 <- function(x) sub("^0", "", sprintf("%.2f", x))
+fmt_number <- function(x) sprintf("%.2f", x)
+fmt_percent <- function(x) sprintf("%.1f", 100 * x)
+fmt_beta <- function(x) sub("^(-?)0", "\\1", sprintf("%.2f", x))
+fmt_ci <- function(row, df) {
+  critical_value <- qt(.975, df = df)
+  lower <- row$estimate - critical_value * row$std_error
+  upper <- row$estimate + critical_value * row$std_error
+  digits <- if (abs(row$estimate) < .10) 3L else 2L
+  format_bound <- function(x) {
+    sub("^(-?)0", "\\1", sprintf(paste0("%.", digits, "f"), x))
+  }
+  paste0("[", format_bound(lower), ", ", format_bound(upper), "]")
+}
+fmt_p <- function(x) {
+  if (x < .001) return("< .001")
+  sub("^0", "", sprintf("%.3f", x))
+}
+
+coefficient_row <- function(analysis_name, term_name) {
+  row <- manuscript_models[
+    manuscript_models$analysis == analysis_name & manuscript_models$term == term_name,
+    ,
+    drop = FALSE
+  ]
+  stopifnot(nrow(row) == 1L)
+  row
+}
+
+rq1_stop <- coefficient_row("RQ1: stop variability", "vot_CoV")
+rq1_vowel <- coefficient_row("RQ1: vowel variability", "vowel_MCV_z")
+rq2_stop <- coefficient_row("RQ2: stop variability", "pretest_c:vot_CoV_c")
+rq2_vowel <- coefficient_row(
+  "RQ2: vowel variability",
+  "pretest_c:vowel_MCV_z"
+)
+rq2_stop_main <- coefficient_row("RQ2: stop variability", "vot_CoV_c")
+rq2_vowel_main <- coefficient_row(
+  "RQ2: vowel variability",
+  "vowel_MCV_z"
+)
+token_counts <- read.csv("results/descriptives_token_counts.csv")
+vowel_token_counts <- token_counts[token_counts$class == "Vowel (F1/F2)", ]
+n_vowel_tokens <- format(sum(vowel_token_counts$total_tokens), big.mark = ",")
+n_vowel_speakers <- max(vowel_token_counts$speakers)
+
+stop_tokens_by_stop <- read.csv(
+  "../data/02_preppedData/summary_stop_measures_by_stop.csv"
+)
+speaker_demographics <- read.csv(
+  "../data/02_preppedData/summary_stop_measures.csv"
+)
+n_speakers <- nrow(speaker_demographics)
+age_mean <- sprintf("%.1f", mean(speaker_demographics$age))
+age_sd <- sprintf("%.2f", sd(speaker_demographics$age))
+age_min <- min(speaker_demographics$age)
+age_max <- max(speaker_demographics$age)
+n_girls <- sum(speaker_demographics$sex == "F")
+n_vot_tokens <- format(sum(stop_tokens_by_stop$stop_n_tokens), big.mark = ",")
+n_vot_speakers <- length(unique(stop_tokens_by_stop$speaker))
+
+# Descriptive values for the Results narrative, from R/descriptives.R inputs.
+# colClasses = "character" preserves the APA formatting written by
+# R/descriptives.R; reading these as numeric would re-round ".10" to "0.100".
+cor_table <- read.csv(
+  "results/descriptives_correlations.csv",
+  check.names = FALSE,
+  colClasses = "character"
+)
+names(cor_table)[names(cor_table) == "STI"] <- "aSTI"
+cor_table$Variable[cor_table$Variable == "Acoustic STI"] <- "aSTI"
+# Pull a single correlation by row and column label. Significance stars are
+# dropped for prose, where the value is reported alongside its own statistics.
+cor_r <- function(row_label, col_label) {
+  sub("\\*+$", "", cor_table[cor_table$Variable == row_label, col_label])
+}
+
+# Per-category means for the measurement-validation sentences. Read as
+# character so the "M (SD)" strings written by R/descriptives.R are preserved.
+by_category <- read.csv(
+  "results/descriptives_by_category.csv",
+  check.names = FALSE,
+  colClasses = "character"
+)
+# Mean only, dropping the parenthesised SD.
+cat_mean <- function(category, measure) {
+  value <- by_category$Mean[
+    by_category$Category == category & by_category$Measure == measure
+  ]
+  sub(" .*", "", value)
+}
+
+# Inter-measurer reliability for VOT, from the targets pipeline
+# (R/vot_reliability.R). ICC is ICC(1,1): speakers were segmented by
+# different pairs of measurers, so raters are not crossed with subjects.
+vot_reliability <- read.csv("../data/02_preppedData/vot_reliability.csv")
+vot_intra_reliability <- read.csv(
+  "../data/02_preppedData/vot_intra_reliability.csv"
+)
+
+vot_by_stop <- read.csv("../data/02_preppedData/summary_stop_measures_by_stop.csv")
+vot_stop_stats <- lapply(
+  split(vot_by_stop, vot_by_stop$targetStop),
+  function(x) list(M = mean(x$vot_M), SD = sd(x$vot_M))
+)
+
+pretest_min <- min(speaker_demographics$pretest)
+pretest_max <- max(speaker_demographics$pretest)
+pretest_mean <- mean(speaker_demographics$pretest)
+rq2_stop_slope_min <- rq2_stop_main$estimate +
+  (pretest_min - pretest_mean) * rq2_stop$estimate
+rq2_stop_slope_max <- rq2_stop_main$estimate +
+  (pretest_max - pretest_mean) * rq2_stop$estimate
+rq2_vowel_slope_min <- rq2_vowel_main$estimate +
+  (pretest_min - pretest_mean) * rq2_vowel$estimate
+rq2_vowel_slope_max <- rq2_vowel_main$estimate +
+  (pretest_max - pretest_mean) * rq2_vowel$estimate
+```
+
+{{< pagebreak >}}
+
+# Abstract
+
+Perceptual learning involves listeners adapting to noncanonical speech, like children’s speech, and is thought to be shaped by production predictability. However, methods for measuring which characteristics of continuous speech are necessary for perceptual learning remain poorly studied. This secondary analysis used variability in children’s stop and vowel productions as segmental indices of predictability and examined associations with initial intelligibility and perceptual learning. Participants were 410 adults who transcribed two-word phrases from one of 40 typically developing children aged 3-8 years before and after familiarization. Stop variability was measured as the coefficient of variation of voice onset time in voiceless stops; vowel variability was measured as the multivariate coefficient of variation of first and second formant frequencies in corner vowels. Linear regressions were used to examine both outcomes, controlling for speech rate. Greater vowel variability was associated with lower initial intelligibility, whereas stop variability showed a weaker, nonsignificant association. Greater stop and vowel variability were associated with smaller perceptual learning gains, particularly among children with lower pretest intelligibility; these associations weakened as pretest intelligibility increased. These findings suggest that segmental consistency may help characterize the relationship between speech predictability and learnability of children’s speech, particularly when initial intelligibility is low.
+
+# Introduction
+
+Speech perception requires listeners to map continuous acoustic cues onto abstract linguistic categories (e.g., phonemes, words). Through experience, listeners develop expectations about how those cues are distributed and how they map onto categories for different talkers [@clayards2008; @kleinschmidt2015]. Perceptual breakdowns may occur when a talker’s speech deviates from these expectations. Such breakdowns are common when listeners encounter noncanonical speech, including foreign-accented, disordered, noise-vocoded, or children’s speech.
+
+Importantly, listeners can adjust both their cue-to-category mappings and talker-specific expectations. Even brief familiarization with a noncanonical talker can improve intelligibility of that talker in a subsequent interaction, a process referred to as perceptual learning. Perceptual learning has been demonstrated with foreign-accented speech [@bradlow2008; @sidaras2009], noise-vocoded speech [@davis2005; @hervaisAdelman2011], and dysarthric speech [@borrie2023; @lansford2018]. Studies of perceptual learning in dysarthria report intelligibility gains following familiarization, typically ranging from 8 to 20 percentage points [@borrieLansford2021].
+
+These findings have motivated interest in listener-targeted intervention, which shifts the burden of intelligibility, at least partially, from the speaker to the listener [@borrieLansford2021]. Such an approach may be particularly advantageous for speakers who are unable to modify their speech through behavioral treatment and are therefore poor candidates for traditional speaker-oriented intervention. However, the efficacy of listener-oriented treatment strategies is constrained by a limited understanding of what characteristics make some speakers and etiologies more suited to this type of treatment than others. Therefore, identifying speaker characteristics that support perceptual learning is an important step toward determining who is most likely to benefit from listener-oriented interventions [@borrieLansford2021].
+
+## Variability and predictability
+
+Theoretical models of speech perception posit that learnability depends, in part, on the statistical structure of a talker’s speech. According to the ideal adapter framework [@kleinschmidt2015], listeners represent a talker’s speech in terms of the distribution of acoustic cues produced for each phonetic category. Listeners adapt to unfamiliar talkers through distributional learning, inferring these talker-specific distributions from the speech they hear. A talker’s cue distribution may differ from a listener’s prior expectations in both its mean (center) and variance (spread). Within this framework, the consistency with which a talker produces a phonetic category, reflected in the distribution’s spread and perceived as predictability, may be particularly important for learning. A talker who produces a category similarly across tokens and contexts yields a narrow distribution, while inconsistent productions result in a broader distribution that provides less stable evidence from which listeners can infer a talker’s cue distributions.
+
+Empirical evidence indicates that listeners are sensitive to both the central tendency and variability of phonetic cue distributions. With respect to central tendency, listeners adapt less effectively to unfamiliar talkers whose cue distributions are centered at values that differ substantially from listeners’ prior expectations [@kleinschmidt2016]. With respect to variability, broader cue distributions provide less reliable information about phonetic category membership. @clayards2008, for example, presented listeners with minimal pairs differing in word-initial voicing (e.g., “beach”–“peach”), where voice onset time (VOT) was drawn from either a wide (high variability) or narrow (low variability) distribution. Listeners exposed to the more variable distribution shifted more gradually from /b/ to /p/ responses as VOT increased, indicating greater uncertainty about category membership for the intermediate tokens. Thus, both the location and dispersion of a talker’s cue distributions influence how listeners categorize and adapt to that talker’s speech.
+
+The dysarthria literature offers complementary evidence for the importance of predictability in perceptual learning. Listeners reliably adapt to hypokinetic, ataxic, and spastic dysarthria subtypes, which all involve relatively consistent, predictable speech degradations, based on expert clinicians’ perceptual ratings. In contrast, listeners familiarized with hyperkinetic dysarthria, clinically characterized by inconsistent and irregular articulatory and prosodic breakdowns, derive minimal benefit from familiarization [@borrie2018; @lansford2019]. This lack of perceptual learning persists even with increased or varied exposure and when familiarization incorporates somatosensory feedback through vocal imitation tasks [@lansford2020]. Collectively, these findings support the hypothesis that successful perceptual learning depends not only on how much a talker differs from a listener’s expectations but also on whether those differences are sufficiently consistent to learn.
+
+## Variability in children’s speech
+
+Children’s speech offers a useful test case for examining the role of predictability in perceptual learning because it is both highly variable during development and highly heterogeneous across children. Relative to adults, children’s productions are more variable in both temporal and spectral dimensions [@eguchi1969; @kent1976; @kent1980; @nittrouer1993]. This variability is well documented at the level of the whole word as well. @sosa2015 elicited three productions of 25 target words from 33 typically developing children aged 2;6 to 3;11 (years; months). Although variability decreased with age, considerable token-to-token variability persisted even in the oldest children. This developmental variability coincides with reduced intelligibility. In a large normative study, @hustad2021 reported that multiword intelligibility reaches 50% between 34 and 46 months, 75% between 46 and 61 months, and 90% between 62 and 87 months. Growth continues through nine years of age for children at median and lower percentiles, with considerable individual variability in intelligibility trajectories across children.
+
+As variability declines and intelligibility increases during development, it is frequently assumed that the greater variability is what underlies the reduced intelligibility of younger children, based on the premise that their productions are less predictable. However, research on production variability in children has primarily focused on its relationship to vocabulary and language measures [@macrae2014], subtypes of speech sound disorder [@preston2011], and the persistence of inconsistency over time [@mcneill2022], rather than on intelligibility itself. Direct evidence linking within-speaker variability to listener-derived intelligibility comes primarily from studies of adults with dysarthria. @kim2011, for example, investigated the relationships between six acoustic vowel measures and listener-derived intelligibility in 12 speakers, nine with dysarthria secondary to cerebral palsy. Both first formant (F1) variability and the degree of overlap among vowel categories predicted intelligibility, with overlap accounting for more variance than vowel space area. Thus, although variability and intelligibility follow complementary developmental trajectories, direct empirical evidence for a relationship between children’s within-speaker production variability and their intelligibility to unfamiliar listeners remains limited.
+
+Two aspects of speech development may shape the predictability of children’s speech. First, children may produce systematic deviations from adult targets, such as the substitution of /w/ for /ɹ/, which is common in young children’s speech. Although these productions deviate from adult targets, they often do so in reliable and consistent ways and may therefore provide a predictable pattern that listeners can learn, similar to an unfamiliar accent [@bradlow2008; @sidaras2009]. Second, an immature speech motor system may lead to inconsistent realizations of the same target across attempts. Early acquired voiceless stops may provide a useful insight into this maturation process. In a review of 18,907 children, Crowe & McLeod (2020) reported that /p/ is generally acquired by 2;11 and /t/ and /k/ by 3;11, indicating that the voiceless stops examined here would generally be considered acquired by the age of the youngest speaker in this study. Nevertheless, the phonetic realization of these stops continues to be refined beyond perceptual acquisition, with elevated token-to-token VOT variability persisting into late childhood or early adolescence [@koenig2000; @koenig2001]. Because these stops are generally acquired early, examining VOT variability in these segments is less likely to reflect whether children have acquired them and more likely to reflect the stability and coordination of the laryngeal and articulatory movements required for their production. Averaged across /p/, /t/, and /k/, VOT variability provides a speaker-level measure of stop production consistency, which may offer a window into children’s developing speech motor control. Elevated motoric inconsistencies may provide a less stable basis for perceptual learning. For this reason, the present study focuses on phonetic consistency rather than whether the stop categories have been acquired.
+
+## Quantifying predictability in children’s speech
+
+A previous study utilizing the same speech corpus demonstrated that children’s speech is learnable within a structured perceptual learning paradigm [@tetzloff2025]. In that study, 410 adult listeners were each assigned to one of 40 child speakers and transcribed phrases produced by that child both before and after a lexically guided familiarization phase. Intelligibility improved by an average of 6.4 percentage points following familiarization (95% CI \[4.76, 8.04\]). However, there was high variation in individual gains ranging from −2.7 to +20.8 percentage points, and no improvement was observed for 3 of the 40 speakers.
+
+To account for the variation in perceptual learning across speakers, @tetzloff2025 examined the relationship between acoustic variability and perceptual learning. Variability was indexed using the acoustic spatiotemporal index (aSTI), a measure calculated by amplitude- and time-normalizing repeated productions of an utterance and summing the standard deviations across records [@smith1995]. The authors found that lower STI values predicted larger intelligibility gains, but only in interaction with pretest intelligibility. This association diminished as pretest intelligibility increased and remained statistically detectable only when pretest intelligibility was below approximately 72%. Notably, the models explained less than one third of the variance in perceptual learning, leaving substantial variation unexplained. One possibility is that STI captures only one dimension of speech predictability. Because the aSTI is derived from the amplitude envelope of repeated utterances, it primarily reflects suprasegmental stability and does not directly represent spectral structure of individual phonetic cues such as formant frequencies.
+
+Several considerations support examining predictability at the segmental level. First, the ideal adapter framework represents talkers in terms of cue distributions for individual phonetic categories, making segmental predictability a logical focus. Second, perceptual learning operates, in part, at the segmental level. Familiarization procedures in perceptual learning paradigms are derived from lexically guided learning, where knowledge of the intended word enables listeners to retune the boundaries of the phonetic categories it contains [@eisner2005; @norris2003]. These paradigms apply the same principle by pairing the speech signal with an orthographic transcript of the intended target [@borrieLansford2021]. Third, the perceptual outcomes of familiarization are evident at the segmental level. In dysarthria, familiarization enhances listeners’ processing of segmental information, including percent syllable resemblance, substitution errors, and consonant identification, as well as their use of suprasegmental cues such as syllabic stress (Borrie et al., 2012, 2013; Kim and Nanney, 2015; Spitzer et al., 2000). In research on accented speech, @sidaras2009 found that the vowels which exhibited the greatest improvement following familiarization were those most acoustically distinct from neighboring vowels. Finally, unlike the STI, segmental variability measures can be calculated from naturally occurring repetitions of phonetic categories embedded within continuous speech. This makes segmental variability measures easier to apply to existing corpora and even spontaneous speech samples, potentially offering greater ecological validity.
+
+Two segmental measures are particularly well suited to quantify consistency. The first is VOT, which is the primary acoustic cue to voicing in stop consonants. Its distributional properties in children are well characterized [@barton1980; @gilbert1977; @kewley-port1974; @lowenstein2008; @macken1980; @menyuk1975; @zlatin1976]. @koenig2000 found that 5-year-olds produced significantly higher VOT standard deviations and coefficients of variation (CV) than adults, and argued that the elevation in CV indicates that the additional variability reflects more than longer durations alone. Additionally, listeners can calibrate to a talker’s unique VOT. Allen & Miller (2004) trained listeners on two talkers whose VOTs were synthetically manipulated so that one produced short and the other long /t/ VOTs. In a paired-comparison task, listeners then heard both a short- and a long-VOT version of a given talker’s speech and selected the version consistent with that talker. They correctly identified the consistent tokens both for words heard during training and for new words produced by the same talker, indicating that listeners encode talker-specific VOT and generalize it beyond the items they have heard.
+
+The second is vowel formant structure. The first (F1) and second (F2) formant frequencies at the vowel midpoint index articulatory positioning, and their variability declines across childhood as a marker of emerging articulatory stability [@eguchi1969; @kent1976; @nittrouer1993]. The dispersion of a speaker's vowel tokens in the F1–F2 plane therefore captures spectral information that the aSTI does not directly represent [@benham2023].
+
+Collectively, these considerations highlight a specific gap in the literature. Predictability is considered to be an explanation for differences in speaker learnability and has been characterized at both segmental and suprasegmental levels. For example, @lansford2020 classified dysarthric speech features along both dimensions. The inability of listeners to adapt to hyperkinetic dysarthria has also been attributed, in part, to irregular consonant and vowel distortion [@borrie2018]. However, in perceptual learning research, predictability has more often been inferred perceptual characterization of the speech signal rather than measured directly [@borrie2018; @lansford2019; @lansford2020], and when quantified, measurement has focused on suprasegmental stability [@tetzloff2025]. The present study aims to address this gap.
+
+## The current study
+
+This study quantified variability at the segmental level and investigated whether these measures predict two perceptual outcomes: listeners’ initial understanding of a child’s speech (baseline intelligibility) and their subsequent improvement following familiarization (perceptual learning). Stop variability was measured as the coefficient of variation (CV) of VOT in word-initial voiceless stops, and vowel variability as the multivariate CV (MCV) of F1 and F2 in the corner vowels. The two research questions address segmental predictability in relation to two theoretically distinct perceptual outcomes. Baseline (pretest) intelligibility reflects the degree to which an unfamiliar listener can understands a child’s speech upon first encounter, while perceptual learning reflects how much the listener’s understanding improves after exposure to the child’s speech. The following questions were addressed:
+
+1.  Does stop variability (VOT CV) or vowel variability (F1/F2 MCV) predict baseline intelligibility?
+2.  Does stop variability (VOT CV) or vowel variability (F1/F2 MCV) predict perceptual learning?
+
+For the first question, it was hypothesized that greater segmental variability would be associated with lower pretest intelligibility. This hypothesis is based on the prediction that broader within-category distributions result in more tokens occupying acoustically ambiguous regions, thereby making categorization more difficult for unfamiliar listeners. For the second question, it was hypothesized that greater segmental variability would be associated with smaller intelligibility gains, and that this association would be moderated by pretest intelligibility. Consistent with @tetzloff2025, the association was expected to be strongest among speakers with lower baseline intelligibility, as speakers who are already highly intelligible provide listeners with limited opportunity for improvement.
+
+# Method
+
+This study is a secondary analysis of speech recordings and perceptual data previously reported by @tetzloff2025. The child speakers, adult listeners, speech materials, and perceptual learning paradigm were identical to those described in that report and are summarized only briefly below; full details are available in @tetzloff2025. The segmental acoustic analyses described in the Acoustic Analysis section are novel to the present study. Institutional Review Board approval was obtained from Utah State University (protocol #11380) and the University of Houston (STUDY00005261).
+
+## Speakers
+
+Speech samples were obtained from `r n_speakers` typically developing children between `r age_min` and `r age_max` years of age ($M$ = `r age_mean`, $SD$ = `r age_sd`), `r n_girls` of whom were female. All were monolingual native speakers of a standard American English dialect living in northern Utah or southern Minnesota, and none had a parent-reported diagnosis of a speech, language, or hearing disorder.
+
+## Listeners
+
+A total of 410 adult listeners were recruited through Prolific and completed the experiment online in Gorilla. Each listener was assigned to a single child speaker, such that perceptual learning was speaker-specific, with 10 listeners per speaker. All listeners were monolingual English speakers residing in the United States ($M_{age}$ = 35.93 years, $SD$ = 11.12) with no self-reported history of speech, language, or hearing disorder. Listeners who failed to respond to at least 80% of the items in either test phase were excluded, yielding a final sample of 371 listeners.
+
+## Speech materials
+
+Recordings were made in a quiet room with a handheld digital Zoom H5 recorder. Because many children in this age range are not yet reliable readers, all materials were elicited by imitation: each child heard a phrase recorded by an adult female model talker while viewing a corresponding picture and then repeated it. The testing stimuli were 100 two-word phrases of two to six syllables. The phrases were constructed to have low interword predictability, so that listeners could not use top-down contextual inference to recover the target words. They were restricted to high-frequency vocabulary appropriate for children between 3 and 8 years of age. Fifty phrases were assigned to the pretest and 50 to the posttest, with the two sets matched on number of syllables, number of phonemes, and articulatory complexity as indexed by the word complexity measure [@stoelGammon2010]. The familiarization passage was the children’s story *Hedgehugs*, divided into 36 short phrases of four to 12 syllables, which together contained every English phoneme except /ʒ/ (a category which was also absent in the testing stimuli). Children additionally produced the phrases “buy Bobby a puppy” and “beeping broccoli” 15 times each.
+
+## Perceptual learning task
+
+The paradigm comprised three phases: pretest, familiarization training, and posttest. At pretest, listeners transcribed 50 phrases produced by their assigned child speaker. During familiarization, they heard the *Hedgehugs* passage from that same speaker phrase by phrase, with the intended text displayed onscreen. At posttest, they transcribed the remaining 50 phrases. Transcripts were scored for percent words correct using Autoscore [@borrie2019]; a word was counted correct if it matched the intended target exactly or differed only in plurality, and homophones and evident spelling errors were also credited. The full session lasted approximately 30 minutes.
+
+Pretest intelligibility was defined as the percentage of words correctly transcribed before familiarization. Perceptual learning was calculated as posttest intelligibility minus pretest intelligibility; positive values therefore indicated improvement following familiarization.
+
+## Acoustic analysis
+
+Speech recordings from all speech stimuli were first automatically segmented using Montreal Forced Alignment (MFA; McAuliffe et al., 2017) with the English ARPA dictionary and acoustic model. This initial automatic alignment provided approximate locations for the target stops and vowels. All segments were manually reviewed, and boundary locations were corrected as needed.
+
+**Stop variability.** To quantify stop variability, we measured VOT for word-initial voiceless stops /p/, /t/, and /k/. Word-initial stops occurring in consonant clusters were excluded because consonantal context systematically affects VOT [@klatt1975]. This yielded `r n_vot_tokens` tokens across the `r n_vot_speakers` speakers. VOT was manually identified in Praat [@boersma2025] using the spectrographic view. The boundaries for the VOT segment were operationally defined as the period between the burst and the first glottal pulse of the following sound. In most cases, these boundaries were easily identifiable. However, when the burst location was ambiguous, we followed @knowles2021: in cases where multiple bursts were present, the initial burst was used as the onset; in cases where frication occurred before the burst, the onset of the frication was used as the onset; when neither a clear burst nor clear frication was present, these tokens were excluded from the VOT analysis.
+
+For each speaker and stop category, VOT variability was expressed as a coefficient of variation (CV), calculated by dividing the standard deviation of VOT by its mean and multiplying by 100. We then averaged the three stop-specific CV values into a single VOT CV value per speaker, weighting each by the number of tokens from which it was derived so that stops with more observations contributed proportionally more. We used CV rather than raw VOT standard deviation because mean VOT differs systematically by place of articulation, generally increasing as constriction moves more posterior. Because the raw standard deviations tend to scale with the mean, CV instead expresses VOT dispersion relative to the mean, facilitating comparison across stop categories, consistent with prior comparisons of variability in speech-segment duration [@kent1980]. Higher VOT CV values indicate greater within-speaker variability in stop production.
+
+Because VOT measurements relied entirely on manual boundary placement, we evaluated inter- and intra-measurer reliability for the VOT measurements. To establish inter-measurer reliability, `r vot_reliability$n_speakers` of the `r n_speakers` speakers were independently segmented by a second measurer. This yielded `r vot_reliability$n_tokens` tokens measured by both. Absolute agreement between measurers was high, $\mathrm{ICC}(1,1) = `r fmt_r2(vot_reliability$icc)`$, $95\%~CI = [`r fmt_r2(vot_reliability$icc_lower)`, `r fmt_r2(vot_reliability$icc_upper)`]$, with a mean absolute difference of `r fmt_number(vot_reliability$mean_absolute_difference_ms)` ms ($Mdn\$ = `r fmt_number(vot_reliability$median_absolute_difference_ms)` ms). At the speaker level, VOT CV differed between measurers by an average of `r fmt_number(vot_reliability$mean_absolute_cv_difference)` percentage points. To establish intra-measurer reliability, the original measurer re-segmented `r vot_intra_reliability$n_speakers` speakers several months later. This yielded `r vot_intra_reliability$n_tokens` tokens measured on both occasions. Absolute agreement across occasions was high, $\mathrm{ICC}(1,1) = `r fmt_r2(vot_intra_reliability$icc)`$, $95\%~CI = [`r fmt_r2(vot_intra_reliability$icc_lower)`, `r fmt_r2(vot_intra_reliability$icc_upper)`]$, with a mean absolute difference of `r fmt_number(vot_intra_reliability$mean_absolute_difference_ms)` ms ($Mdn\$ = `r fmt_number(vot_intra_reliability$median_absolute_difference_ms)` ms). At the speaker level, VOT CV differed between occasions by an average of `r fmt_number(vot_intra_reliability$mean_absolute_cv_difference)` percentage points.
+
+**Vowel variability.** To measure vowel variability, the first (F1) and second (F2) formant frequencies were derived from the corner vowels /i/, /æ/, /ɑ/, and /u/. To minimize the impact of coarticulatory effects, vowel tokens were only used from stressed syllables that were not preceded or followed by a semivowel. This yielded `r n_vowel_tokens` tokens across the `r n_vowel_speakers` speakers. Formant data were derived using Praat’s “To Formant (burg)…” function [@boersma2025], with the default automatic time step, a formant ceiling of 5500 Hz, a window length of .025 s, and a pre-emphasis from 50 Hz. Because the maximum number of formants interacts with both vowel quality and vocal tract length, this parameter was not held constant: it was initially set by vowel category (3 for /i/ and /æ/; 4 for /ɑ/ and /u/) and then adjusted per token during manual review, with final values ranging from 3 to 5. F1 and F2 were then measured at the temporal midpoint of each vowel.
+
+All tokens were manually reviewed for formant-tracking errors. Tokens with large Mahalanobis distance from the centroid of their vowel category in the F1–F2 plane were flagged for inspection; for flagged tokens, the maximum number of formants was adjusted, and the token was re-measured.
+
+After obtaining the F1 and F2 formants, the multivariate CV (MCV) for each vowel was calculated using the GFDmcv package (version 0.1.0; Ditzhaus & Smaga, 2023), which calculates MCV using the Voinov and Nikulin (1996) formula, specified as:
+
+$${MCV}_{VN} = \sqrt{\frac{1}{\mathbf{\mu}^{\mathsf{T}}\,\mathbf{\Sigma}^{-1}\,\mathbf{\mu}}}$$
+
+where $\mathbf{\Sigma}$ is the covariance matrix of F1 and F2 and $\mathbf{\mu}$ is the mean F1–F2 vector. MCV was calculated separately for each vowel category within each speaker, and the four values were then averaged, weighted by the number of tokens contributing to each, to yield a single vowel MCV per speaker. As with VOT CV, we used a mean-normalized measure rather than a raw dispersion measure because formant frequencies scale with vocal tract length and therefore differ systematically across children of different ages and sexes. Expressing F1–F2 dispersion relative to the mean makes vowel variability comparable across speakers of differing vocal tract size. Higher MCV values indicate greater dispersion of a speaker's vowel tokens in the two-dimensional F1–F2 space, relative to that speaker's own mean formant values.
+
+**Speech rate.** Speech rate was calculated as syllables per second, derived from the testing phrases, familiarization passage, and “buy Bobby a puppy” and “beeping broccoli” repetitions. The total speech duration was calculated as the summed duration of all speech intervals, and speech rate was then calculated by dividing the total number of syllables by total speech duration to yield a single speech rate value per speaker. Speech rate was included as a covariate because segmental variability, particularly the temporal variability captured by VOT CV, could plausibly covary with speech rate [@allen2003].
+
+**Suprasegmental Variability.** Exploratory correlations used the aSTI values previously calculated for these speakers, as described in @tetzloff2025. Bias-corrected values were derived separately for “beeping broccoli” and “buy Bobby a puppy” repetitions. In the current study, these values were averaged to obtain a single speaker-level estimate of suprasegmental variability. Higher values indicate greater suprasegmental variability.
+
+## Statistical analysis
+
+All statistical analyses were conducted in `r version$version.string` [@rCoreTeam2025]. Analyses were conducted at the speaker level using linear regression models fit with the `lm()` function in the base R `stats` package.
+
+To address RQ1, we fit separate models to predict pretest intelligibility from stop- and vowel-variability. The stop model included VOT CV in its original percentage units, whereas the vowel model included F1/F2 MCV standardized across speakers ($M = 0$, $SD = 1$). Because F1/F2 MCV is a unitless measure, standardization provides an interpretable unit of change. That is, its coefficient represents the expected change in pretest intelligibility associated with a one-SD increase in vowel variability.
+
+To address RQ2, we fit separate models predicting perceptual learning from each segmental variability measure, pretest intelligibility, and their interaction. These models tested whether the association between segmental variability and perceptual learning varied as a function of speakers’ pretest intelligibility. To facilitate interpretation of the lower-order interaction coefficients, both predictors in each interaction were centered. Pretest intelligibility was mean-centered in both models. In the stop model, VOT CV was also mean-centered in its original percentage-point units. In the vowel model, standardized F1/F2 MCV was already centered by the nature of standardization.
+
+Speech rate was included as a covariate in every model. Model assumptions and fit were assessed for violations of linearity, constant residual variance, normality of residuals, collinearity among predictors, and influential outliers. No violations were identified in any model. All tests were two-tailed with an alpha level of .05.
+
+# Results
+
+## Descriptive statistics
+
+Speaker-level descriptive statistics and correlations among the measures entering the models are reported in @tbl-correlations. The two segmental measures were weakly correlated, $r = `r cor_r("Vowel MCV", "VOT CV")`$, suggesting that stop and vowel variability indexed distinct properties of a speaker. Additionally, segmental variability measures were not significantly correlated with the aSTI. This is consistent with prior observations of the kinematic STI, which show distinct behavior from segmental variability measures (Scoppa et al., 2026; Vuolo & Goffman, 2017). Speech rate was negatively correlated with VOT CV, $r = `r cor_r("Speech rate (syll/s)", "VOT CV")`$, and more weakly with vowel MCV, $r = `r cor_r("Speech rate (syll/s)", "Vowel MCV")`$. Both segmental measures were negatively correlated with pretest intelligibility, $r = `r cor_r("Pretest intelligibility (%)", "VOT CV")`$ for VOT CV and $r = `r cor_r("Pretest intelligibility (%)", "Vowel MCV")`$ for vowel MCV. These correlations, however, do not account for speech rate; the models reported below for research question 1 examine the association between each variability measure and pretest intelligibility while controlling for speech rate.
+
+```{r}
+#| label: tbl-correlations
+#| tbl-cap: "Speaker-level means, standard deviations, and correlations among the acoustic measures, speech rate, age, and the perceptual outcomes."
+
+knitr::kable(cor_table, align = c("l", rep("r", ncol(cor_table) - 1)))
+```
+
+*Note.* Column headings are abbreviated forms of the row variables. VOT CV = coefficient of variation of voice onset time; MCV = multivariate coefficient of variation; aSTI = acoustic spatiotemporal index; Pretest = pretest intelligibility; Learning = perceptual learning. \* *p* \< .05. \*\* *p* \< .01. \*\*\* *p* \< .001.
+
+The underlying segmental values used to calculate both measures of variability followed the expected patterns. The values below are averaged across speakers; therefore, the standard deviations reflect between-speaker variation. Mean voice onset time increased as the place of constriction moved posteriorly, from `r fmt_number(vot_stop_stats$P$M)` ms ($SD$ = `r fmt_number(vot_stop_stats$P$SD)`) for /p/, to `r fmt_number(vot_stop_stats$T$M)` ms ($SD$ = `r fmt_number(vot_stop_stats$T$SD)`) for /t/, to `r fmt_number(vot_stop_stats$K$M)` ms ($SD$ = `r fmt_number(vot_stop_stats$K$SD)`) for /k/, consistent with the well-documented effect of place of articulation on VOT [@kent1980]. Mean formant frequencies likewise placed the corner vowels in their expected positions in the F1–F2 space. The high front vowel /i/ had the lowest F1 (`r cat_mean("/i/", "F1 (Hz)")` Hz) and the highest F2 (`r cat_mean("/i/", "F2 (Hz)")` Hz), the low vowels /æ/ and /ɑ/ had the highest F1 values (`r cat_mean("/æ/", "F1 (Hz)")` and `r cat_mean("/ɑ/", "F1 (Hz)")` Hz), and /ɑ/ had the lowest F2 (`r cat_mean("/ɑ/", "F2 (Hz)")` Hz). The high back vowel /u/ had a low F1 (`r cat_mean("/u/", "F1 (Hz)")` Hz) alongside a relatively high F2 (`r cat_mean("/u/", "F2 (Hz)")` Hz), consistent with the fronted /u/ typical of American English.
+
+## Research question 1: Segmental variability and pretest intelligibility
+
+**Stop variability.** Stop variability was not a significant predictor of pretest intelligibility after controlling for speech rate. A 1-percentage-point increase in VOT CV was associated with a `r fmt_number(abs(rq1_stop$estimate))`-point decrease in pretest intelligibility, $t(`r rq1_stop$n - 3`) =`r fmt_number(rq1_stop$statistic)`$, $p = `r fmt_p(rq1_stop$p_value)`$, $95\%~CI =`r fmt_ci(rq1_stop, rq1_stop$n - 3)`$. The model explained `r fmt_percent(rq1_stop$r_squared)`% of the variance in pretest intelligibility, $R^2 = `r fmt_r2(rq1_stop$r_squared)`$.
+
+**Vowel variability.** Greater vowel variability was significantly associated with lower pretest intelligibility after controlling for speech rate. A 1-SD increase in F1/F2 MCV was associated with a `r fmt_number(abs(rq1_vowel$estimate))`-point decrease in pretest intelligibility, $t(`r rq1_vowel$n - 3`) =`r fmt_number(rq1_vowel$statistic)`$, $p = `r fmt_p(rq1_vowel$p_value)`$, $95\%~CI =`r fmt_ci(rq1_vowel, rq1_vowel$n - 3)`$. The model explained `r fmt_percent(rq1_vowel$r_squared)`% of the variance in pretest intelligibility, $R^2 = `r fmt_r2(rq1_vowel$r_squared)`$.
+
+Model-predicted associations between segmental variability and pretest intelligibility are shown in @fig-rq1-segmental.
+
+![Predicted pretest intelligibility as a function of stop variability (VOT CV; left) and vowel variability (F1/F2 MCV; right), controlling for speech rate. Points show the raw observations and therefore do not account for differences in speech rate. Shaded bands represent 95% confidence intervals.](figures/RQ1_pretest_x_segmental_variability.png){#fig-rq1-segmental width="100%"}
+
+## Research question 2: Segmental variability and perceptual learning
+
+Full model results are reported in @tbl-rq2-models, and the interactions between pretest intelligibility and each measure of segmental variability are shown in @fig-rq2-segmental.
+
+![Predicted perceptual learning (posttest intelligibility – pretest intelligibility) as a function of segmental variability at the observed minimum (`r fmt_number(pretest_min)`%) and maximum (`r fmt_number(pretest_max)`%) pretest intelligibility scores. The left panel shows stop variability (VOT CV), and the right panel shows vowel variability (F1/F2 MCV). Shaded bands represent 95% confidence intervals.](figures/RQ2_learning_pretest_x_segmental_variability.png){#fig-rq2-segmental width="100%"}
+
+```{r}
+#| label: tbl-rq2-models
+#| tbl-cap: "Linear models predicting perceptual learning from segmental variability, pretest intelligibility, and their interaction, controlling for speech rate."
+
+# gt renders natively to both HTML and Word. tab_spanner_delim() rebuilds the
+# spanning model headers from the "<model>__<statistic>" column names.
+# HTML gets gt, with spanning model headers. Word gets a captioned,
+# empty placeholder: gt omits <w:tblGrid> and produces a file Word
+# refuses to open, so the styled table is pasted in by hand from
+# tables/*_gt.html. The placeholder keeps the caption, the table
+# number, and the cross-reference intact.
+if (knitr::is_html_output()) {
+  model_tbl <- read.csv("tables/RQ2_model_table.csv", check.names = FALSE,
+                        colClasses = "character")
+  style_model_table(model_tbl)
+} else {
+  knitr::kable(
+    data.frame(x = "[paste Table 2 here]"),
+    col.names = NULL
+  )
+}
+```
+
+**Stop variability.** The interaction between pretest intelligibility and VOT CV was a significant predictor of perceptual learning, $t(`r rq2_stop$n - 5`) =`r fmt_number(rq2_stop$statistic)`$, $p = `r fmt_p(rq2_stop$p_value)`$, $95\%~CI =`r fmt_ci(rq2_stop, rq2_stop$n - 5)`$, after controlling for speech rate. As shown in the left panel of @fig-rq2-segmental, greater VOT variability was associated with less perceptual learning among speakers with lower pretest intelligibility. In contrast, this negative association weakened as pretest intelligibility increased. At the minimum pretest score (`r fmt_number(pretest_min)`%), a 1-percentage-point increase in VOT CV was associated with a predicted `r fmt_number(abs(rq2_stop_slope_min))`-point decrease in perceptual learning. At the maximum pretest score (`r fmt_number(pretest_max)`%), a 1-percentage-point increase in VOT CV was associated with a predicted `r fmt_number(rq2_stop_slope_max)`-point increase in perceptual learning. The model explained `r fmt_percent(rq2_stop$r_squared)`% of the variance in perceptual learning, $R^2 = `r fmt_r2(rq2_stop$r_squared)`$.
+
+**Vowel variability.** The interaction between pretest intelligibility and vowel MCV was also a significant predictor of perceptual learning, $t(`r rq2_vowel$n - 5`) =`r fmt_number(rq2_vowel$statistic)`$, $p = `r fmt_p(rq2_vowel$p_value)`$, $95\%~CI =`r fmt_ci(rq2_vowel, rq2_vowel$n - 5)`$, after controlling for speech rate. As shown in the right panel of @fig-rq2-segmental, greater F1/F2 MCV was associated with less perceptual learning at lower levels of pretest intelligibility, but this relationship became less negative as pretest intelligibility increased. At the minimum pretest score (`r fmt_number(pretest_min)`%), a 1-SD increase in F1/F2 MCV was associated with a predicted `r fmt_number(abs(rq2_vowel_slope_min))`-point decrease in perceptual learning. At the maximum pretest score (`r fmt_number(pretest_max)`%), a 1-SD increase in F1/F2 MCV was associated with a predicted `r fmt_number(rq2_vowel_slope_max)`-point increase in perceptual learning. The model explained `r fmt_percent(rq2_vowel$r_squared)`% of the variance in perceptual learning, $R^2 = `r fmt_r2(rq2_vowel$r_squared)`$.
+
+# Discussion
+
+This study investigated the consistency of children’s segmental productions as an acoustic index of speech predictability and assessed its association with both initial intelligibility and perceptual learning. Greater variability in vowel formant production was modestly linked to lower pretest intelligibility, whereas stop variability demonstrated a weaker and nonsignificant association in the same direction. With respect to perceptual learning, greater stop and vowel variability was associated with smaller gains after familiarization, particularly for children with lower pretest intelligibility. These associations weakened as pretest intelligibility increased. Collectively, these results indicate that segmental variability may help characterize how learnable a child’s speech is, particularly when it is initially difficult to understand.
+
+## Segmental variability and pretest intelligibility
+
+The findings partially supported the hypothesis for our first research question: greater vowel variability was associated with lower pretest intelligibility, whereas stop variability showed a weaker, nonsignificant relationship in the same direction. The full vowel MCV model, which also accounted for speech rate, explained `r fmt_percent(rq1_vowel$r_squared)`% of the variance in pretest intelligibility, while the corresponding VOT CV model explained `r fmt_percent(rq1_stop$r_squared)`%. Vowel variability therefore showed the clearer association with initial intelligibility in these data.
+
+One possible explanation for the clearer association with vowel MCV is that vowel variability may have had more direct perceptual consequences in this task. Because pretest intelligibility was measured using two-word phrases with low inter-word predictability, the task provided limited contextual support for anticipating or reconstructing the target words. As a result, listeners may have relied more heavily on bottom-up acoustic–phonetic information. Under these conditions, greater dispersion in F1–F2 space could make individual vowel tokens less distinct from neighboring vowel categories. In contrast, stops may have been transcribed correctly despite increased VOT variability when the productions continued to be heard as the intended voiceless stops and other acoustic cues (e.g., stop burst spectra) supported stop identification. This account is compatible with the developmental distinction described earlier: stop categories may be judged acquired on perceptual grounds even while the consistency of their VOT implementation continues to be refined [@crowe2020; @koenig2000].
+
+However, vowel and stop variability are difficult to compare because the measures capture different types of acoustic information. VOT CV captures variability along a single temporal dimension, whereas vowel MCV captures variability across two spectral dimensions, F1 and F2. The clearer association observed for vowel MCV could mean that vowel variability was more relevant to perception, that children showed more meaningful differences in vowel consistency, or that vowel MCV was more sensitive to those differences. The present findings cannot distinguish among these explanations. Future research could address this issue by comparing measures that are better matched in acoustic domain and dimensionality, such as stop VOT with vowel duration or stop burst spectra with vowel spectra.
+
+The relatively modest amount of variance accounted for by the models is unsurprising given the limited range of segmental cues examined. The current study measured consistency in four target vowels and word-initial voiceless stops, which are generally acquired relatively early in development. These measures therefore do not capture production regularity across all speech segments or phonetic contexts. Future research could examine a broader segment inventory, including later-developing phonemes such as /ɹ/, /ð/, /ʒ/, and /θ/ [@crowe2020]. These phonemes may show different patterns of accuracy and consistency across childhood and could help clarify whether the relationship between production regularity and intelligibility varies across segment types and developmental stages.
+
+Even a broader set of segmental consistency measures, however, would capture only one aspect of articulation. @rowe2023 categorized acoustic articulatory measures into five domains: coordination, consistency, speed, precision, and repetition rate. Within this framework, VOT CV and vowel MCV primarily measure consistency, whereas much of the literature on articulation and intelligibility emphasizes precision, which pertains to the accuracy and distinctiveness of speech units. For instance, @kim2011 reported that both F1 variability (consistency) and vowel-category overlap (precision) predicted intelligibility in speakers with dysarthria, but vowel-category overlap accounted for substantially more variance. The current findings similarly suggest that consistency represents only one component of intelligibility. Explaining a greater proportion of variance in intelligibility will likely require incorporating measures from multiple articulatory domains, as well as nonarticulatory and listener-related factors. In typically developing children, for example, Mahr & Hustad (2023) found that single-word intelligibility was more strongly predicted by word frequency and phonological neighborhood competition than by word-level motor complexity, underscoring the contribution of linguistic factors beyond articulation.
+
+## Segmental variability and perceptual learning
+
+The findings supported the hypothesis for our second research question: greater stop and vowel variability were associated with smaller gains after familiarization, particularly among children with lower pretest intelligibility. These associations weakened as pretest intelligibility increased. In other words, listeners benefited most from familiarization when a child’s speech was initially challenging to understand but their segmental productions were relatively consistent. This pattern parallels the aSTI findings for the same speakers [@tetzloff2025], suggesting that across both segmental and suprasegmental measures, the association between production consistency and perceptual learning is strongest when initial intelligibility is low. Note that the importance of pretest intelligibility in moderating this relationship is not necessarily anything more than as a statistical ceiling on the perceptual learning (since learning gains cannot exceed the gap left by pretest intelligibility deficits).
+
+Consistent productions result in more predictable cue distributions, enabling listeners to develop a more stable model of the talker during familiarization [@kleinschmidt2015]. The VOT results align with experimental evidence that listeners are sensitive to the variability of phonetic cue distributions. @clayards2008 demonstrated that exposure to broader, synthesized VOT distributions led to shallower phonetic categorization functions, reflecting increased uncertainty about category membership. In the present study, broader VOT distributions may have similarly reduced the predictability of a child’s voiceless stops, providing listeners with less reliable information for inferring production patterns. These findings therefore extend previous evidence from synthetic distributions to naturally occurring variability in children’s speech, where such variability was linked to differences in perceptual learning.
+
+The present measures characterize the dispersion of children’s segmental productions but not where those productions were located relative to listeners’ expectations. This distinction may also be relevant to perceptual learning. A child whose productions deviate systematically but remain consistent may provide a stable pattern that listeners can learn, similar to adaptation to systematic deviations in unfamiliar accents [@bradlow2008; @sidaras2009]. In contrast, productions that both deviate from expectations and vary substantially across tokens may provide a less stable basis for adaptation, consistent with evidence in dysarthria where listeners adapt to predictable speech degradation but show limited adaptation when degradation is irregular [@borrie2018; @borrieLansford2021]. Future research could quantify systematic deviation by comparing the center of each child’s segmental cue distribution with an operationally defined reference, such as the corresponding distribution in adult speech.
+
+One way that distributional location and dispersion may jointly affect perception is by determining how much neighboring categories overlap. As discussed in relation to pretest intelligibility, the perceptual consequences of segmental variability may depend partly on whether it makes categories less distinct. Considering the average location and dispersion of individual categories together would allow future research to estimate this overlap and determine whether children with less distinct segmental categories are both more difficult to understand initially and less amenable to perceptual learning. For example, in non-native-accented speech, overlap between vowel categories was more closely related to learning difficulty than how far the vowels differed from typical native productions [@wade2007]. Although this work focused on vowels, the broader principle may apply to segmental contrasts whenever variability reduces the acoustic distinction between categories. Future studies could therefore examine whether children with greater overlap among their vowel or consonant categories are also more difficult for listeners to understand and adapt to.
+
+## Relations between segmental and suprasegmental variability
+
+The current findings suggest that segmental and suprasegmental measures may capture distinct dimensions of speech variability. Like the aSTI in these speakers [@tetzloff2025], both segmental measures interacted with pretest intelligibility in predicting perceptual learning, suggesting that listeners may learn regularities at multiple levels of the speech signal. However, the three measures were only weakly correlated. VOT CV and vowel MCV shared little variance, $r = `r cor_r("Vowel MCV", "VOT CV")`$, and the aSTI was modestly related to both VOT CV, $r = .29$, and vowel MCV, $r = .15$ (@tbl-correlations). These weak correlations are consistent with the possibility that measures obtained at different levels of speech production may reflect distinct underlying processes (Vuolo & Goffman, 2017). Thus, a speaker may exhibit predictability in one dimension while remaining variable in another, and no single measure may fully characterize the consistency of the speaker’s production.
+
+These correlations should also be interpreted in light of the differences in speech sampling. STI was derived from repeated productions of “buy Bobby a puppy” and “beeping broccoli,” which were not presented during testing or familiarization. In contrast, the segmental measures were aggregated across tokens from these phrases and a wider set of speech materials and phonetic contexts that listeners encountered during the experiment, potentially strengthening their association with perceptual learning. Thus, the weak correlations among the measures may reflect differences in sampling and measurement as well as distinct dimensions of speech-production variability.
+
+## Clinical implications
+
+Although the present study involved typically developing children rather than a clinical population, the findings have implications for the development of listener-targeted interventions. Most importantly, they support the broader premise of evaluating predictability at the level of the individual speaker rather than assuming learnability from age, diagnosis, or intelligibility alone. This is consistent with the idea that speaker-level predictability, alongside listener-level factors, may be relevant to candidacy for listener-targeted intervention [@borrieLansford2021]. The interactions also indicate that variability is best interpreted alongside baseline intelligibility. In the present child sample, greater consistency was most informative for speakers whom listeners initially found difficult to understand, suggesting that intelligibility and predictability may need to be considered jointly when estimating the likely benefit of familiarization. Whether additional or more varied familiarization would benefit speakers with less predictable productions remains untested here, because the amount of exposure was held constant across speakers. The present measures are therefore not yet suitable for individual clinical prediction, particularly because consistency alone may not determine learnability, but they identify candidate features for future work on speaker-specific learnability.
+
+## Limitations and future directions
+
+The current study examined a relatively limited scope of segmental units, including voiceless stops and corner vowels. While these segments were chosen based on their use in prior research, we acknowledge that they offer only a narrow slice of the speech signal and may not generalize to other segments. Additionally, the present study is unable to separate the importance of spectral versus temporal consistency and the context of their measurement (consonant vs. vowel) which remains an important topic for future work. Future work could examine the previously mentioned later-acquired consonants, including /ɹ/, /ð/, /ʒ/, and /θ/, as well as segments involving more dynamic articulatory movement, such as diphthongs and semivowels. Finally, and most importantly for clinical translation, the present study involved typically developing children. The relationship between segmental consistency and perceptual learning therefore remains to be demonstrated in speakers with dysarthria or other communication disorders, who represent the populations for whom listener-targeted treatment is most relevant.
+
+## Conclusion
+
+This study quantified the consistency of children’s segmental productions as an acoustic index of predictability. Greater vowel variability was modestly associated with lower intelligibility to unfamiliar listeners, whereas stop variability was not significantly related to initial intelligibility. The relationship between segmental consistency and perceptual learning was clearer but conditional on pretest intelligibility. Among children who were initially more difficult to understand, listeners showed greater gains following familiarization when segmental productions were relatively consistent. This association weakened as initial intelligibility rose, suggesting that predictability matters most when a listener has something to learn. The segmental measures were only weakly related to one another and to the suprasegmental measure reported previously [@tetzloff2025], suggesting that speech predictability is multidimensional. Estimating speaker-specific learnability may therefore require considering predictability across multiple dimensions of speech production rather than relying on a single measure of variability.
+
+**Acknowledgments**
+
+This research was supported by the National Institute on Deafness and Other Communication Disorders Grants R01DC020930 and R01DC020713 awarded to S.A. Borrie.
+
+**Conflict of Interest**
+
+The authors have no conflicts of interest to disclose.
+
+**Ethics Approval**
+
+Institutional Review Board approval was obtained from Utah State University (protocol #11380) and the University of Houston (STUDY00005261).
+
+**Data Availability**
+
+# References
+
+::: {#refs}
+:::

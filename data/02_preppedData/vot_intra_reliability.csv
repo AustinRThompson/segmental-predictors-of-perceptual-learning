@@ -1,0 +1,2 @@
+n_speakers,n_tokens,icc,icc_lower,icc_upper,mean_absolute_difference_ms,median_absolute_difference_ms,largest_pair_bias_ms,mean_absolute_cv_difference
+5,443,0.991346378847123,0.989580617246754,0.992814122256354,2.20878838312059,1.09643454212005,-1.74401451071063,1.2218057469721
