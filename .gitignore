@@ -54,3 +54,6 @@ rsconnect/
 # Ignore raw and intermediate data
 data/00_raw
 data/01_interim
+
+# Ignoring archived scripts
+archive
