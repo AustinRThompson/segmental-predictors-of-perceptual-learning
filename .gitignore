@@ -1,5 +1,5 @@
 # History files
-.Rhistory
+.Rhistory*
 .Rapp.history
 
 # Session Data files
@@ -35,6 +35,11 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+*_files/
+.quarto/
+node_modules/
+node_modules
+~$*.docx
 
 # R Environment Variables
 .Renviron
@@ -57,6 +62,13 @@ rsconnect/
 # Ignore raw and intermediate data
 data/00_raw
 data/01_interim
+
+# Rebuildable pipeline and rendered-document output
+_targets/
+tmp/
+data_prep.nb.html
+manuscript_analysis/manuscript.html
+manuscript_analysis/manuscript.docx
 
 # Ignoring archived scripts
 archive
