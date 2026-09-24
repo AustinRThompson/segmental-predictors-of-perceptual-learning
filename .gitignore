@@ -48,6 +48,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
+# Ignore mac specific files
+**/.DS_Store
+
 # Ignore large file types
 *.wav
 
